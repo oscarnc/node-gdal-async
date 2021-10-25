@@ -11,6 +11,8 @@
 // gdal
 #include <gdal_priv.h>
 
+#include "dataset_collection.hpp"
+
 using namespace v8;
 using namespace node;
 
@@ -23,14 +25,14 @@ using namespace node;
 
 namespace node_gdal {
 
-class LayerFields : public Nan::ObjectWrap {
+class FeatureDefn;
+class Layer;
+
+class LayerFields : public DatasetCollection<LayerFields, OGRFeatureDefn *, OGRLayer *, FeatureDefn, Layer> {
     public:
   static Nan::Persistent<FunctionTemplate> constructor;
-
+  static constexpr const char *_className = "LayerFields";
   static void Initialize(Local<Object> target);
-  static NAN_METHOD(New);
-  static Local<Value> New(Local<Value> layer_obj);
-  static NAN_METHOD(toString);
 
   static NAN_METHOD(get);
   static NAN_METHOD(getNames);

@@ -12,23 +12,21 @@ Nan::Persistent<FunctionTemplate> DatasetBands::constructor;
 void DatasetBands::Initialize(Local<Object> target) {
   Nan::HandleScope scope;
 
-  Local<FunctionTemplate> lcons = Nan::New<FunctionTemplate>(DatasetBands::New);
-  lcons->InstanceTemplate()->SetInternalFieldCount(1);
-  lcons->SetClassName(Nan::New("DatasetBands").ToLocalChecked());
+  DatasetCollection<DatasetBands, GDALRasterBand *, GDALDataset *, RasterBand, Dataset>::Initialize(target);
+  Local<FunctionTemplate> lcons = Nan::New(constructor);
 
-  Nan::SetPrototypeMethod(lcons, "toString", toString);
-  Nan__SetPrototypeAsyncableMethod(lcons, "count", count);
   Nan__SetPrototypeAsyncableMethod(lcons, "create", create);
-  Nan__SetPrototypeAsyncableMethod(lcons, "get", get);
 
-  ATTR_DONT_ENUM(lcons, "ds", dsGetter, READ_ONLY_SETTER);
-
-  Nan::Set(target, Nan::New("DatasetBands").ToLocalChecked(), Nan::GetFunction(lcons).ToLocalChecked());
-
-  constructor.Reset(lcons);
+  // This is a vicious V8/Node/Nan pitfall:
+  // lcons is not a function object, it is a function template
+  // this means that it would be instantiated at this very moment,
+  // once this happens, further modifications of the prototype template
+  // won't have an effect on the actual prototype object in our context
+  // -> so this statement can't be in the base class
+  Nan::Set(target, Nan::New(_className).ToLocalChecked(), Nan::GetFunction(lcons).ToLocalChecked());
 }
 
-DatasetBands::DatasetBands() : Nan::ObjectWrap() {
+DatasetBands::DatasetBands() : DatasetCollection<DatasetBands, GDALRasterBand *, GDALDataset *, RasterBand, Dataset>() {
 }
 
 DatasetBands::~DatasetBands() {
@@ -43,43 +41,6 @@ DatasetBands::~DatasetBands() {
  *
  * @class gdal.DatasetBands
  */
-NAN_METHOD(DatasetBands::New) {
-  Nan::HandleScope scope;
-
-  if (!info.IsConstructCall()) {
-    Nan::ThrowError("Cannot call constructor as function, you need to use 'new' keyword");
-    return;
-  }
-  if (info[0]->IsExternal()) {
-    Local<External> ext = info[0].As<External>();
-    void *ptr = ext->Value();
-    DatasetBands *f = static_cast<DatasetBands *>(ptr);
-    f->Wrap(info.This());
-    info.GetReturnValue().Set(info.This());
-    return;
-  } else {
-    Nan::ThrowError("Cannot create DatasetBands directly");
-    return;
-  }
-}
-
-Local<Value> DatasetBands::New(Local<Value> ds_obj) {
-  Nan::EscapableHandleScope scope;
-
-  DatasetBands *wrapped = new DatasetBands();
-
-  v8::Local<v8::Value> ext = Nan::New<External>(wrapped);
-  v8::Local<v8::Object> obj =
-    Nan::NewInstance(Nan::GetFunction(Nan::New(DatasetBands::constructor)).ToLocalChecked(), 1, &ext).ToLocalChecked();
-  Nan::SetPrivate(obj, Nan::New("parent_").ToLocalChecked(), ds_obj);
-
-  return scope.Escape(obj);
-}
-
-NAN_METHOD(DatasetBands::toString) {
-  Nan::HandleScope scope;
-  info.GetReturnValue().Set(Nan::New("DatasetBands").ToLocalChecked());
-}
 
 /**
  * Returns the band with the given ID.
@@ -101,32 +62,13 @@ NAN_METHOD(DatasetBands::toString) {
  * @throws Error
  * @return {Promise<gdal.RasterBand>}
  */
-GDAL_ASYNCABLE_DEFINE(DatasetBands::get) {
-  Nan::HandleScope scope;
+GDALRasterBand *DatasetBands::__get(GDALDataset *parent, size_t idx) {
+  if (idx > static_cast<size_t>(__count(parent)) || idx == 0) return nullptr;
+  return parent->GetRasterBand(idx);
+}
 
-  Local<Object> parent =
-    Nan::GetPrivate(info.This(), Nan::New("parent_").ToLocalChecked()).ToLocalChecked().As<Object>();
-  Dataset *ds = Nan::ObjectWrap::Unwrap<Dataset>(parent);
-
-  if (!ds->isAlive()) {
-    Nan::ThrowError("Dataset object has already been destroyed");
-    return;
-  }
-
-  GDALDataset *raw = ds->get();
-  int band_id;
-  NODE_ARG_INT(0, "band id", band_id);
-
-  GDALAsyncableJob<GDALRasterBand *> job(ds->uid);
-  job.persist(parent);
-  job.main = [raw, band_id](const GDALExecutionProgress &) {
-    CPLErrorReset();
-    GDALRasterBand *band = raw->GetRasterBand(band_id);
-    if (band == nullptr) { throw CPLGetLastErrorMsg(); }
-    return band;
-  };
-  job.rval = [raw](GDALRasterBand *band, GetFromPersistentFunc) { return RasterBand::New(band, raw); };
-  job.run(info, async, 1);
+GDALRasterBand *DatasetBands::__get(GDALDataset *parent, std::string const &name) {
+  throw "index must be a number";
 }
 
 /**
@@ -215,27 +157,8 @@ GDAL_ASYNCABLE_DEFINE(DatasetBands::create) {
  * @param {callback<number>} [callback=undefined] {{{cb}}}
  * @return {Promise<number>}
  */
-GDAL_ASYNCABLE_DEFINE(DatasetBands::count) {
-  Nan::HandleScope scope;
-
-  Local<Object> parent =
-    Nan::GetPrivate(info.This(), Nan::New("parent_").ToLocalChecked()).ToLocalChecked().As<Object>();
-  Dataset *ds = Nan::ObjectWrap::Unwrap<Dataset>(parent);
-
-  if (!ds->isAlive()) {
-    Nan::ThrowError("Dataset object has already been destroyed");
-    return;
-  }
-
-  GDALDataset *raw = ds->get();
-  GDALAsyncableJob<int> job(ds->uid);
-  job.persist(parent);
-  job.main = [raw](const GDALExecutionProgress &) {
-    int count = raw->GetRasterCount();
-    return count;
-  };
-  job.rval = [](int count, GetFromPersistentFunc) { return Nan::New<Integer>(count); };
-  job.run(info, async, 0);
+int DatasetBands::__count(GDALDataset *parent) {
+  return parent->GetRasterCount();
 }
 
 /**
@@ -245,9 +168,5 @@ GDAL_ASYNCABLE_DEFINE(DatasetBands::count) {
  * @attribute ds
  * @type {gdal.Dataset}
  */
-NAN_GETTER(DatasetBands::dsGetter) {
-  Nan::HandleScope scope;
-  info.GetReturnValue().Set(Nan::GetPrivate(info.This(), Nan::New("parent_").ToLocalChecked()).ToLocalChecked());
-}
 
 } // namespace node_gdal

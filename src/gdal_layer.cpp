@@ -89,14 +89,11 @@ NAN_METHOD(Layer::New) {
     Layer *f = static_cast<Layer *>(ptr);
     f->Wrap(info.This());
 
-    Local<Value> features = LayerFeatures::New(info.This());
+    Local<Value> features = LayerFeatures::New(info.This(), info[1]);
     Nan::SetPrivate(info.This(), Nan::New("features_").ToLocalChecked(), features);
 
-    Local<Value> fields = LayerFields::New(info.This());
+    Local<Value> fields = LayerFields::New(info.This(), info[1]);
     Nan::SetPrivate(info.This(), Nan::New("fields_").ToLocalChecked(), fields);
-
-    info.GetReturnValue().Set(info.This());
-    return;
   } else {
     Nan::ThrowError("Cannot create layer directly. Create with dataset instead.");
     return;
@@ -118,10 +115,6 @@ Local<Value> Layer::New(OGRLayer *raw, GDALDataset *raw_parent, bool result_set)
 
   Layer *wrapped = new Layer(raw);
 
-  Local<Value> ext = Nan::New<External>(wrapped);
-  Local<Object> obj =
-    Nan::NewInstance(Nan::GetFunction(Nan::New(Layer::constructor)).ToLocalChecked(), 1, &ext).ToLocalChecked();
-
   // add reference to datasource so datasource doesnt get GC'ed while layer is
   // alive
   Local<Object> ds;
@@ -133,6 +126,11 @@ Local<Value> Layer::New(OGRLayer *raw, GDALDataset *raw_parent, bool result_set)
     return scope.Escape(Nan::Undefined());
     // ds = Dataset::New(raw_parent); //should never happen
   }
+
+  Local<Value> ext = Nan::New<External>(wrapped);
+  v8::Local<v8::Value> argv[] = {ext, ds};
+  Local<Object> obj =
+    Nan::NewInstance(Nan::GetFunction(Nan::New(Layer::constructor)).ToLocalChecked(), 2, argv).ToLocalChecked();
 
   Dataset *unwrapped = Nan::ObjectWrap::Unwrap<Dataset>(ds);
   long parent_uid = unwrapped->uid;

@@ -11,6 +11,7 @@
 // gdal
 #include <gdal_priv.h>
 
+#include "dataset_collection.hpp"
 #include "../async.hpp"
 
 using namespace v8;
@@ -18,14 +19,14 @@ using namespace node;
 
 namespace node_gdal {
 
-class LayerFeatures : public Nan::ObjectWrap {
+class Feature;
+class Layer;
+
+class LayerFeatures : public DatasetCollection<LayerFeatures, OGRFeature *, OGRLayer *, Feature, Layer> {
     public:
   static Nan::Persistent<FunctionTemplate> constructor;
-
+  static constexpr const char *_className = "LayerFeatures";
   static void Initialize(Local<Object> target);
-  static NAN_METHOD(New);
-  static Local<Value> New(Local<Value> layer_obj);
-  static NAN_METHOD(toString);
 
   GDAL_ASYNCABLE_DECLARE(get);
   GDAL_ASYNCABLE_DECLARE(first);
@@ -34,8 +35,6 @@ class LayerFeatures : public Nan::ObjectWrap {
   GDAL_ASYNCABLE_DECLARE(add);
   GDAL_ASYNCABLE_DECLARE(set);
   GDAL_ASYNCABLE_DECLARE(remove);
-
-  static NAN_GETTER(layerGetter);
 
   LayerFeatures();
 

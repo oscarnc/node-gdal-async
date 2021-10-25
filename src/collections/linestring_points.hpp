@@ -11,6 +11,8 @@
 // gdal
 #include <gdal_priv.h>
 
+#include "standalone_collection.hpp"
+
 using namespace v8;
 using namespace node;
 
@@ -18,19 +20,23 @@ using namespace node;
 
 namespace node_gdal {
 
-class LineStringPoints : public Nan::ObjectWrap {
+class LineString;
+class Geometry;
+
+class LineStringPoints
+  : public StandaloneCollection<LineStringPoints, OGRPoint *, OGRLineString *, Geometry, LineString> {
     public:
   static Nan::Persistent<FunctionTemplate> constructor;
-
+  static constexpr const char *_className = "LineStringPoints";
   static void Initialize(Local<Object> target);
-  static NAN_METHOD(New);
-  static Local<Value> New(Local<Value> geom);
-  static NAN_METHOD(toString);
+
+  static OGRPoint *__get(OGRLineString *parent, size_t idx);
+  static OGRPoint *__get(OGRLineString *parent, std::string name);
+  static int __count(OGRLineString *parent);
 
   static NAN_METHOD(add);
   static NAN_METHOD(get);
   static NAN_METHOD(set);
-  static NAN_METHOD(count);
   static NAN_METHOD(reverse);
   static NAN_METHOD(resize);
 

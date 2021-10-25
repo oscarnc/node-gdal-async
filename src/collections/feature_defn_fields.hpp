@@ -11,6 +11,9 @@
 // gdal
 #include <gdal_priv.h>
 
+#include "standalone_collection.hpp"
+#include "../gdal_feature.hpp"
+
 using namespace v8;
 using namespace node;
 
@@ -18,18 +21,21 @@ using namespace node;
 
 namespace node_gdal {
 
-class FeatureDefnFields : public Nan::ObjectWrap {
+class Feature;
+class FeatureDefn;
+class FieldDefn;
+
+class FeatureDefnFields
+  : public StandaloneCollection<FeatureDefnFields, OGRFieldDefn *, OGRFeatureDefn *, FieldDefn, FeatureDefn> {
     public:
   static Nan::Persistent<FunctionTemplate> constructor;
-
+  static constexpr const char *_className = "FeatureDefnFields";
   static void Initialize(Local<Object> target);
-  static NAN_METHOD(New);
-  static Local<Value> New(Local<Value> layer_obj);
-  static NAN_METHOD(toString);
+
+  static int __count(OGRFeatureDefn *parent);
 
   static NAN_METHOD(get);
   static NAN_METHOD(getNames);
-  static NAN_METHOD(count);
   static NAN_METHOD(add);
   static NAN_METHOD(remove);
   static NAN_METHOD(indexOf);

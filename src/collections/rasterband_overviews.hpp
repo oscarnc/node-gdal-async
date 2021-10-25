@@ -11,6 +11,7 @@
 // gdal
 #include <gdal_priv.h>
 
+#include "dataset_collection.hpp"
 #include "../async.hpp"
 
 using namespace v8;
@@ -18,18 +19,22 @@ using namespace node;
 
 namespace node_gdal {
 
-class RasterBandOverviews : public Nan::ObjectWrap {
+class Dataset;
+class RasterBand;
+
+class RasterBandOverviews
+  : public DatasetCollection<RasterBandOverviews, GDALRasterBand *, GDALRasterBand *, RasterBand, RasterBand> {
+    public:
     public:
   static Nan::Persistent<FunctionTemplate> constructor;
-
+  static constexpr const char *_className = "RasterBandOverviews";
   static void Initialize(Local<Object> target);
-  static NAN_METHOD(New);
-  static Local<Value> New(Local<Value> band_obj);
-  static NAN_METHOD(toString);
 
-  GDAL_ASYNCABLE_DECLARE(get);
+  static GDALRasterBand *__get(GDALRasterBand *parent, size_t idx);
+  static GDALRasterBand *__get(GDALRasterBand *parent, std::string const &name);
+  static int __count(GDALRasterBand *parent);
+
   GDAL_ASYNCABLE_DECLARE(getBySampleCount);
-  GDAL_ASYNCABLE_DECLARE(count);
 
   RasterBandOverviews();
 

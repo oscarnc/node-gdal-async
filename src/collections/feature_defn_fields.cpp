@@ -31,7 +31,8 @@ void FeatureDefnFields::Initialize(Local<Object> target) {
   constructor.Reset(lcons);
 }
 
-FeatureDefnFields::FeatureDefnFields() : Nan::ObjectWrap() {
+FeatureDefnFields::FeatureDefnFields()
+  : StandaloneCollection<FeatureDefnFields, OGRFieldDefn *, OGRFeatureDefn *, FieldDefn, FeatureDefn>() {
 }
 
 FeatureDefnFields::~FeatureDefnFields() {
@@ -43,44 +44,6 @@ FeatureDefnFields::~FeatureDefnFields() {
  *
  * @class gdal.FeatureDefnFields
  */
-NAN_METHOD(FeatureDefnFields::New) {
-  Nan::HandleScope scope;
-
-  if (!info.IsConstructCall()) {
-    Nan::ThrowError("Cannot call constructor as function, you need to use 'new' keyword");
-    return;
-  }
-  if (info[0]->IsExternal()) {
-    Local<External> ext = info[0].As<External>();
-    void *ptr = ext->Value();
-    FeatureDefnFields *feature_def = static_cast<FeatureDefnFields *>(ptr);
-    feature_def->Wrap(info.This());
-    info.GetReturnValue().Set(info.This());
-    return;
-  } else {
-    Nan::ThrowError("Cannot create FeatureDefnFields directly");
-    return;
-  }
-}
-
-Local<Value> FeatureDefnFields::New(Local<Value> feature_defn) {
-  Nan::EscapableHandleScope scope;
-
-  FeatureDefnFields *wrapped = new FeatureDefnFields();
-
-  v8::Local<v8::Value> ext = Nan::New<External>(wrapped);
-  v8::Local<v8::Object> obj =
-    Nan::NewInstance(Nan::GetFunction(Nan::New(FeatureDefnFields::constructor)).ToLocalChecked(), 1, &ext)
-      .ToLocalChecked();
-  Nan::SetPrivate(obj, Nan::New("parent_").ToLocalChecked(), feature_defn);
-
-  return scope.Escape(obj);
-}
-
-NAN_METHOD(FeatureDefnFields::toString) {
-  Nan::HandleScope scope;
-  info.GetReturnValue().Set(Nan::New("FeatureDefnFields").ToLocalChecked());
-}
 
 /**
  * Returns the number of fields.
@@ -88,18 +51,17 @@ NAN_METHOD(FeatureDefnFields::toString) {
  * @method count
  * @return {number}
  */
-NAN_METHOD(FeatureDefnFields::count) {
-  Nan::HandleScope scope;
 
-  Local<Object> parent =
-    Nan::GetPrivate(info.This(), Nan::New("parent_").ToLocalChecked()).ToLocalChecked().As<Object>();
-  FeatureDefn *feature_def = Nan::ObjectWrap::Unwrap<FeatureDefn>(parent);
-  if (!feature_def->isAlive()) {
-    Nan::ThrowError("FeatureDefn object already destroyed");
-    return;
-  }
-
-  info.GetReturnValue().Set(Nan::New<Integer>(feature_def->get()->GetFieldCount()));
+/**
+ * Returns the number of curves that exist in the collection.
+ * {{{async}}}
+ *
+ * @method countAsync
+ * @param {callback<gdal.Layer>} [callback=undefined] {{{cb}}}
+ * @return {Promise<number>}
+ */
+int FeatureDefnFields::__count(OGRFeatureDefn *parent) {
+  return parent->GetFieldCount();
 }
 
 /**

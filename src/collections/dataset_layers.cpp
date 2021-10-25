@@ -13,25 +13,19 @@ Nan::Persistent<FunctionTemplate> DatasetLayers::constructor;
 void DatasetLayers::Initialize(Local<Object> target) {
   Nan::HandleScope scope;
 
-  Local<FunctionTemplate> lcons = Nan::New<FunctionTemplate>(DatasetLayers::New);
-  lcons->InstanceTemplate()->SetInternalFieldCount(1);
-  lcons->SetClassName(Nan::New("DatasetLayers").ToLocalChecked());
+  DatasetCollection<DatasetLayers, OGRLayer *, GDALDataset *, Layer, Dataset>::Initialize(target);
+  Local<FunctionTemplate> lcons = Nan::New(constructor);
 
-  Nan::SetPrototypeMethod(lcons, "toString", toString);
-  Nan__SetPrototypeAsyncableMethod(lcons, "count", count);
   Nan__SetPrototypeAsyncableMethod(lcons, "create", create);
   Nan__SetPrototypeAsyncableMethod(lcons, "copy", copy);
-  Nan__SetPrototypeAsyncableMethod(lcons, "get", get);
   Nan__SetPrototypeAsyncableMethod(lcons, "remove", remove);
 
-  ATTR_DONT_ENUM(lcons, "ds", dsGetter, READ_ONLY_SETTER);
-
-  Nan::Set(target, Nan::New("DatasetLayers").ToLocalChecked(), Nan::GetFunction(lcons).ToLocalChecked());
+  Nan::Set(target, Nan::New(_className).ToLocalChecked(), Nan::GetFunction(lcons).ToLocalChecked());
 
   constructor.Reset(lcons);
 }
 
-DatasetLayers::DatasetLayers() : Nan::ObjectWrap() {
+DatasetLayers::DatasetLayers() : DatasetCollection<DatasetLayers, OGRLayer *, GDALDataset *, Layer, Dataset>() {
 }
 
 DatasetLayers::~DatasetLayers() {
@@ -46,44 +40,6 @@ DatasetLayers::~DatasetLayers() {
  *
  * @class gdal.DatasetLayers
  */
-NAN_METHOD(DatasetLayers::New) {
-  Nan::HandleScope scope;
-
-  if (!info.IsConstructCall()) {
-    Nan::ThrowError("Cannot call constructor as function, you need to use 'new' keyword");
-    return;
-  }
-  if (info[0]->IsExternal()) {
-    Local<External> ext = info[0].As<External>();
-    void *ptr = ext->Value();
-    DatasetLayers *f = static_cast<DatasetLayers *>(ptr);
-    f->Wrap(info.This());
-    info.GetReturnValue().Set(info.This());
-    return;
-  } else {
-    Nan::ThrowError("Cannot create DatasetLayers directly");
-    return;
-  }
-}
-
-Local<Value> DatasetLayers::New(Local<Value> ds_obj) {
-  Nan::EscapableHandleScope scope;
-
-  DatasetLayers *wrapped = new DatasetLayers();
-
-  v8::Local<v8::Value> ext = Nan::New<External>(wrapped);
-  v8::Local<v8::Object> obj =
-    Nan::NewInstance(Nan::GetFunction(Nan::New(DatasetLayers::constructor)).ToLocalChecked(), 1, &ext).ToLocalChecked();
-
-  Nan::SetPrivate(obj, Nan::New("parent_").ToLocalChecked(), ds_obj);
-
-  return scope.Escape(obj);
-}
-
-NAN_METHOD(DatasetLayers::toString) {
-  Nan::HandleScope scope;
-  info.GetReturnValue().Set(Nan::New("DatasetLayers").ToLocalChecked());
-}
 
 /**
  * Returns the layer with the given name or identifier.
@@ -104,52 +60,12 @@ NAN_METHOD(DatasetLayers::toString) {
  * @throws Error
  * @return {Promise<gdal.Layer>}
  */
+OGRLayer *DatasetLayers::__get(GDALDataset *parent, size_t idx) {
+  return parent->GetLayer(idx);
+}
 
-GDAL_ASYNCABLE_DEFINE(DatasetLayers::get) {
-  Nan::HandleScope scope;
-
-  Local<Object> parent =
-    Nan::GetPrivate(info.This(), Nan::New("parent_").ToLocalChecked()).ToLocalChecked().As<Object>();
-  Dataset *ds = Nan::ObjectWrap::Unwrap<Dataset>(parent);
-
-  if (!ds->isAlive()) {
-    Nan::ThrowError("Dataset object has already been destroyed");
-    return;
-  }
-
-  GDALDataset *raw = ds->get();
-
-  if (info.Length() < 1) {
-    Nan::ThrowError("method must be given integer or string");
-    return;
-  }
-
-  GDALAsyncableJob<OGRLayer *> job(ds->uid);
-  job.persist(parent);
-  if (info[0]->IsString()) {
-    std::string *layer_name = new std::string(*Nan::Utf8String(info[0]));
-    job.main = [raw, layer_name](const GDALExecutionProgress &) {
-      std::unique_ptr<std::string> layer_name_ptr(layer_name);
-      CPLErrorReset();
-      OGRLayer *lyr = raw->GetLayerByName(layer_name->c_str());
-      if (lyr == nullptr) { throw CPLGetLastErrorMsg(); }
-      return lyr;
-    };
-  } else if (info[0]->IsNumber()) {
-    int64_t id = Nan::To<int64_t>(info[0]).ToChecked();
-    job.main = [raw, id](const GDALExecutionProgress &) {
-      CPLErrorReset();
-      OGRLayer *lyr = raw->GetLayer(id);
-      if (lyr == nullptr) { throw CPLGetLastErrorMsg(); }
-      return lyr;
-    };
-  } else {
-    Nan::ThrowTypeError("method must be given integer or string");
-    return;
-  }
-
-  job.rval = [raw](OGRLayer *lyr, GetFromPersistentFunc) { return Layer::New(lyr, raw); };
-  job.run(info, async, 1);
+OGRLayer *DatasetLayers::__get(GDALDataset *parent, std::string const &name) {
+  return parent->GetLayerByName(name.c_str());
 }
 
 /**
@@ -254,29 +170,8 @@ GDAL_ASYNCABLE_DEFINE(DatasetLayers::create) {
  * @return {Promise<number>}
  */
 
-GDAL_ASYNCABLE_DEFINE(DatasetLayers::count) {
-  Nan::HandleScope scope;
-
-  Local<Object> parent =
-    Nan::GetPrivate(info.This(), Nan::New("parent_").ToLocalChecked()).ToLocalChecked().As<Object>();
-  Dataset *ds = Nan::ObjectWrap::Unwrap<Dataset>(parent);
-
-  if (!ds->isAlive()) {
-    Nan::ThrowError("Dataset object has already been destroyed");
-    return;
-  }
-
-  GDALDataset *raw = ds->get();
-
-  GDALAsyncableJob<int> job(ds->uid);
-  job.persist(parent);
-  job.main = [raw](const GDALExecutionProgress &) {
-    int count = raw->GetLayerCount();
-    return count;
-  };
-
-  job.rval = [](int count, GetFromPersistentFunc) { return Nan::New<Integer>(count); };
-  job.run(info, async, 0);
+int DatasetLayers::__count(GDALDataset *parent) {
+  return parent->GetLayerCount();
 }
 
 /**
@@ -394,9 +289,5 @@ GDAL_ASYNCABLE_DEFINE(DatasetLayers::remove) {
  * @attribute ds
  * @type {gdal.Dataset}
  */
-NAN_GETTER(DatasetLayers::dsGetter) {
-  Nan::HandleScope scope;
-  info.GetReturnValue().Set(Nan::GetPrivate(info.This(), Nan::New("parent_").ToLocalChecked()).ToLocalChecked());
-}
 
 } // namespace node_gdal

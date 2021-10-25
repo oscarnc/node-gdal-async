@@ -28,7 +28,8 @@ void LineStringPoints::Initialize(Local<Object> target) {
   constructor.Reset(lcons);
 }
 
-LineStringPoints::LineStringPoints() : Nan::ObjectWrap() {
+LineStringPoints::LineStringPoints()
+  : StandaloneCollection<LineStringPoints, OGRPoint *, OGRLineString *, Geometry, LineString>() {
 }
 
 LineStringPoints::~LineStringPoints() {
@@ -40,44 +41,6 @@ LineStringPoints::~LineStringPoints() {
  *
  * @class gdal.LineStringPoints
  */
-NAN_METHOD(LineStringPoints::New) {
-  Nan::HandleScope scope;
-
-  if (!info.IsConstructCall()) {
-    Nan::ThrowError("Cannot call constructor as function, you need to use 'new' keyword");
-    return;
-  }
-  if (info[0]->IsExternal()) {
-    Local<External> ext = info[0].As<External>();
-    void *ptr = ext->Value();
-    LineStringPoints *geom = static_cast<LineStringPoints *>(ptr);
-    geom->Wrap(info.This());
-    info.GetReturnValue().Set(info.This());
-    return;
-  } else {
-    Nan::ThrowError("Cannot create LineStringPoints directly");
-    return;
-  }
-}
-
-Local<Value> LineStringPoints::New(Local<Value> geom) {
-  Nan::EscapableHandleScope scope;
-
-  LineStringPoints *wrapped = new LineStringPoints();
-
-  v8::Local<v8::Value> ext = Nan::New<External>(wrapped);
-  v8::Local<v8::Object> obj =
-    Nan::NewInstance(Nan::GetFunction(Nan::New(LineStringPoints::constructor)).ToLocalChecked(), 1, &ext)
-      .ToLocalChecked();
-  Nan::SetPrivate(obj, Nan::New("parent_").ToLocalChecked(), geom);
-
-  return scope.Escape(obj);
-}
-
-NAN_METHOD(LineStringPoints::toString) {
-  Nan::HandleScope scope;
-  info.GetReturnValue().Set(Nan::New("LineStringPoints").ToLocalChecked());
-}
 
 /**
  * Returns the number of points that are part of the line string.
@@ -85,14 +48,18 @@ NAN_METHOD(LineStringPoints::toString) {
  * @method count
  * @return {number}
  */
-NAN_METHOD(LineStringPoints::count) {
-  Nan::HandleScope scope;
 
-  Local<Object> parent =
-    Nan::GetPrivate(info.This(), Nan::New("parent_").ToLocalChecked()).ToLocalChecked().As<Object>();
-  LineString *geom = Nan::ObjectWrap::Unwrap<LineString>(parent);
+/**
+ * Returns the number of points that are part of the line string.
+ * {{{async}}}
+ *
+ * @method countAsync
+ * @param {callback<gdal.Layer>} [callback=undefined] {{{cb}}}
+ * @return {Promise<number>}
+ */
 
-  info.GetReturnValue().Set(Nan::New<Integer>(geom->get()->getNumPoints()));
+int LineStringPoints::__count(OGRLineString *parent) {
+  return parent->getNumPoints();
 }
 
 /**

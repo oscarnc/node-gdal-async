@@ -98,7 +98,7 @@ NAN_METHOD(Dataset::New) {
     Dataset *f = static_cast<Dataset *>(ptr);
     f->Wrap(info.This());
 
-    Local<Value> layers = DatasetLayers::New(info.This());
+    Local<Value> layers = DatasetLayers::New(info.This(), info.This());
     Nan::SetPrivate(info.This(), Nan::New("layers_").ToLocalChecked(), layers);
 
     Local<Value> rootObj, bandsObj;
@@ -107,7 +107,7 @@ NAN_METHOD(Dataset::New) {
     std::shared_ptr<GDALGroup> root = gdal_ds->GetRootGroup();
     if (root == nullptr) {
 #endif
-      bandsObj = DatasetBands::New(info.This());
+      bandsObj = DatasetBands::New(info.This(), info.This());
 #if GDAL_VERSION_MAJOR > 3 || (GDAL_VERSION_MAJOR == 3 && GDAL_VERSION_MINOR >= 1)
     } else {
       bandsObj = Nan::Null();

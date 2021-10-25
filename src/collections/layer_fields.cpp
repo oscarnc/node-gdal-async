@@ -31,7 +31,7 @@ void LayerFields::Initialize(Local<Object> target) {
   constructor.Reset(lcons);
 }
 
-LayerFields::LayerFields() : Nan::ObjectWrap() {
+LayerFields::LayerFields() : DatasetCollection<LayerFields, OGRFeatureDefn *, OGRLayer *, FeatureDefn, Layer>() {
 }
 
 LayerFields::~LayerFields() {
@@ -40,43 +40,6 @@ LayerFields::~LayerFields() {
 /**
  * @class gdal.LayerFields
  */
-NAN_METHOD(LayerFields::New) {
-  Nan::HandleScope scope;
-
-  if (!info.IsConstructCall()) {
-    Nan::ThrowError("Cannot call constructor as function, you need to use 'new' keyword");
-    return;
-  }
-  if (info[0]->IsExternal()) {
-    Local<External> ext = info[0].As<External>();
-    void *ptr = ext->Value();
-    LayerFields *layer = static_cast<LayerFields *>(ptr);
-    layer->Wrap(info.This());
-    info.GetReturnValue().Set(info.This());
-    return;
-  } else {
-    Nan::ThrowError("Cannot create LayerFields directly");
-    return;
-  }
-}
-
-Local<Value> LayerFields::New(Local<Value> layer_obj) {
-  Nan::EscapableHandleScope scope;
-
-  LayerFields *wrapped = new LayerFields();
-
-  v8::Local<v8::Value> ext = Nan::New<External>(wrapped);
-  v8::Local<v8::Object> obj =
-    Nan::NewInstance(Nan::GetFunction(Nan::New(LayerFields::constructor)).ToLocalChecked(), 1, &ext).ToLocalChecked();
-  Nan::SetPrivate(obj, Nan::New("parent_").ToLocalChecked(), layer_obj);
-
-  return scope.Escape(obj);
-}
-
-NAN_METHOD(LayerFields::toString) {
-  Nan::HandleScope scope;
-  info.GetReturnValue().Set(Nan::New("LayerFields").ToLocalChecked());
-}
 
 /**
  * Returns the number of fields.

@@ -11,6 +11,8 @@
 // gdal
 #include <gdal_priv.h>
 
+#include "standalone_collection.hpp"
+
 using namespace v8;
 using namespace node;
 
@@ -18,14 +20,14 @@ using namespace node;
 
 namespace node_gdal {
 
-class PolygonRings : public Nan::ObjectWrap {
+class Geometry;
+class Polygon;
+
+class PolygonRings : public StandaloneCollection<PolygonRings, OGRLinearRing *, OGRPolygon *, Geometry, Polygon> {
     public:
   static Nan::Persistent<FunctionTemplate> constructor;
-
+  static constexpr const char *_className = "PolygonRings";
   static void Initialize(Local<Object> target);
-  static NAN_METHOD(New);
-  static Local<Value> New(Local<Value> geom);
-  static NAN_METHOD(toString);
 
   static NAN_METHOD(get);
   static NAN_METHOD(count);

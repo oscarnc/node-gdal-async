@@ -10,9 +10,9 @@ Nan::Persistent<FunctionTemplate> LayerFeatures::constructor;
 void LayerFeatures::Initialize(Local<Object> target) {
   Nan::HandleScope scope;
 
-  Local<FunctionTemplate> lcons = Nan::New<FunctionTemplate>(LayerFeatures::New);
+  Local<FunctionTemplate> lcons = Nan::New<FunctionTemplate>(New);
   lcons->InstanceTemplate()->SetInternalFieldCount(1);
-  lcons->SetClassName(Nan::New("LayerFeatures").ToLocalChecked());
+  lcons->SetClassName(Nan::New(_className).ToLocalChecked());
 
   Nan::SetPrototypeMethod(lcons, "toString", toString);
   Nan__SetPrototypeAsyncableMethod(lcons, "count", count);
@@ -23,14 +23,15 @@ void LayerFeatures::Initialize(Local<Object> target) {
   Nan__SetPrototypeAsyncableMethod(lcons, "next", next);
   Nan__SetPrototypeAsyncableMethod(lcons, "remove", remove);
 
-  ATTR_DONT_ENUM(lcons, "layer", layerGetter, READ_ONLY_SETTER);
+  ATTR_DONT_ENUM(lcons, "parent", parentGetter, READ_ONLY_SETTER);
+  ATTR_DONT_ENUM(lcons, "layer", parentGetter, READ_ONLY_SETTER);
 
-  Nan::Set(target, Nan::New("LayerFeatures").ToLocalChecked(), Nan::GetFunction(lcons).ToLocalChecked());
+  Nan::Set(target, Nan::New(_className).ToLocalChecked(), Nan::GetFunction(lcons).ToLocalChecked());
 
   constructor.Reset(lcons);
 }
 
-LayerFeatures::LayerFeatures() : Nan::ObjectWrap() {
+LayerFeatures::LayerFeatures() : DatasetCollection<LayerFeatures, OGRFeature *, OGRLayer *, Feature, Layer>() {
 }
 
 LayerFeatures::~LayerFeatures() {
@@ -42,43 +43,6 @@ LayerFeatures::~LayerFeatures() {
  *
  * @class gdal.LayerFeatures
  */
-NAN_METHOD(LayerFeatures::New) {
-  Nan::HandleScope scope;
-
-  if (!info.IsConstructCall()) {
-    Nan::ThrowError("Cannot call constructor as function, you need to use 'new' keyword");
-    return;
-  }
-  if (info[0]->IsExternal()) {
-    Local<External> ext = info[0].As<External>();
-    void *ptr = ext->Value();
-    LayerFeatures *f = static_cast<LayerFeatures *>(ptr);
-    f->Wrap(info.This());
-    info.GetReturnValue().Set(info.This());
-    return;
-  } else {
-    Nan::ThrowError("Cannot create LayerFeatures directly");
-    return;
-  }
-}
-
-Local<Value> LayerFeatures::New(Local<Value> layer_obj) {
-  Nan::EscapableHandleScope scope;
-
-  LayerFeatures *wrapped = new LayerFeatures();
-
-  v8::Local<v8::Value> ext = Nan::New<External>(wrapped);
-  v8::Local<v8::Object> obj =
-    Nan::NewInstance(Nan::GetFunction(Nan::New(LayerFeatures::constructor)).ToLocalChecked(), 1, &ext).ToLocalChecked();
-  Nan::SetPrivate(obj, Nan::New("parent_").ToLocalChecked(), layer_obj);
-
-  return scope.Escape(obj);
-}
-
-NAN_METHOD(LayerFeatures::toString) {
-  Nan::HandleScope scope;
-  info.GetReturnValue().Set(Nan::New("LayerFeatures").ToLocalChecked());
-}
 
 /**
  * Fetch a feature by its identifier.
@@ -470,9 +434,5 @@ GDAL_ASYNCABLE_DEFINE(LayerFeatures::remove) {
  * @attribute layer
  * @type {gdal.Layer}
  */
-NAN_GETTER(LayerFeatures::layerGetter) {
-  Nan::HandleScope scope;
-  info.GetReturnValue().Set(Nan::GetPrivate(info.This(), Nan::New("parent_").ToLocalChecked()).ToLocalChecked());
-}
 
 } // namespace node_gdal

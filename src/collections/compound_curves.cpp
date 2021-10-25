@@ -12,21 +12,17 @@ Nan::Persistent<FunctionTemplate> CompoundCurveCurves::constructor;
 void CompoundCurveCurves::Initialize(Local<Object> target) {
   Nan::HandleScope scope;
 
-  Local<FunctionTemplate> lcons = Nan::New<FunctionTemplate>(CompoundCurveCurves::New);
-  lcons->InstanceTemplate()->SetInternalFieldCount(1);
-  lcons->SetClassName(Nan::New("CompoundCurveCurves").ToLocalChecked());
+  StandaloneCollection<CompoundCurveCurves, OGRCurve *, OGRCompoundCurve *, Geometry, CompoundCurve>::Initialize(
+    target);
+  Local<FunctionTemplate> lcons = Nan::New(CompoundCurveCurves::constructor);
 
-  Nan::SetPrototypeMethod(lcons, "toString", toString);
-  Nan::SetPrototypeMethod(lcons, "count", count);
-  Nan::SetPrototypeMethod(lcons, "get", get);
   Nan::SetPrototypeMethod(lcons, "add", add);
 
-  Nan::Set(target, Nan::New("CompoundCurveCurves").ToLocalChecked(), Nan::GetFunction(lcons).ToLocalChecked());
-
-  constructor.Reset(lcons);
+  Nan::Set(target, Nan::New(_className).ToLocalChecked(), Nan::GetFunction(lcons).ToLocalChecked());
 }
 
-CompoundCurveCurves::CompoundCurveCurves() : Nan::ObjectWrap() {
+CompoundCurveCurves::CompoundCurveCurves()
+  : StandaloneCollection<CompoundCurveCurves, OGRCurve *, OGRCompoundCurve *, Geometry, CompoundCurve>() {
 }
 
 CompoundCurveCurves::~CompoundCurveCurves() {
@@ -38,44 +34,6 @@ CompoundCurveCurves::~CompoundCurveCurves() {
  *
  * @class gdal.CompoundCurveCurves
  */
-NAN_METHOD(CompoundCurveCurves::New) {
-  Nan::HandleScope scope;
-
-  if (!info.IsConstructCall()) {
-    Nan::ThrowError("Cannot call constructor as function, you need to use 'new' keyword");
-    return;
-  }
-  if (info[0]->IsExternal()) {
-    Local<External> ext = info[0].As<External>();
-    void *ptr = ext->Value();
-    CompoundCurveCurves *geom = static_cast<CompoundCurveCurves *>(ptr);
-    geom->Wrap(info.This());
-    info.GetReturnValue().Set(info.This());
-    return;
-  } else {
-    Nan::ThrowError("Cannot create CompoundCurveCurves directly");
-    return;
-  }
-}
-
-Local<Value> CompoundCurveCurves::New(Local<Value> geom) {
-  Nan::EscapableHandleScope scope;
-
-  CompoundCurveCurves *wrapped = new CompoundCurveCurves();
-
-  v8::Local<v8::Value> ext = Nan::New<External>(wrapped);
-  v8::Local<v8::Object> obj =
-    Nan::NewInstance(Nan::GetFunction(Nan::New(CompoundCurveCurves::constructor)).ToLocalChecked(), 1, &ext)
-      .ToLocalChecked();
-  Nan::SetPrivate(obj, Nan::New("parent_").ToLocalChecked(), geom);
-
-  return scope.Escape(obj);
-}
-
-NAN_METHOD(CompoundCurveCurves::toString) {
-  Nan::HandleScope scope;
-  info.GetReturnValue().Set(Nan::New("CompoundCurveCurves").ToLocalChecked());
-}
 
 /**
  * Returns the number of curves that exist in the collection.
@@ -83,14 +41,17 @@ NAN_METHOD(CompoundCurveCurves::toString) {
  * @method count
  * @return {number}
  */
-NAN_METHOD(CompoundCurveCurves::count) {
-  Nan::HandleScope scope;
 
-  Local<Object> parent =
-    Nan::GetPrivate(info.This(), Nan::New("parent_").ToLocalChecked()).ToLocalChecked().As<Object>();
-  CompoundCurve *geom = Nan::ObjectWrap::Unwrap<CompoundCurve>(parent);
-
-  info.GetReturnValue().Set(Nan::New<Integer>(geom->get()->getNumCurves()));
+/**
+ * Returns the number of curves that exist in the collection.
+ * {{{async}}}
+ *
+ * @method countAsync
+ * @param {callback<gdal.Layer>} [callback=undefined] {{{cb}}}
+ * @return {Promise<number>}
+ */
+int CompoundCurveCurves::__count(OGRCompoundCurve *parent) {
+  return parent->getNumCurves();
 }
 
 /**
@@ -104,22 +65,31 @@ NAN_METHOD(CompoundCurveCurves::count) {
  * @method get
  * @param {number} index
  * @throws Error
- * @return {gdal.CompoundCurve|gdal.SimpleCurve}
+ * @return {gdal.SimpleCurve}
  */
-NAN_METHOD(CompoundCurveCurves::get) {
-  Nan::HandleScope scope;
 
-  Local<Object> parent =
-    Nan::GetPrivate(info.This(), Nan::New("parent_").ToLocalChecked()).ToLocalChecked().As<Object>();
-  CompoundCurve *geom = Nan::ObjectWrap::Unwrap<CompoundCurve>(parent);
+/**
+ * Returns the curve at the specified index.
+ * {{{async}}}
+ *
+ * @example
+ * ```
+ * var curve0 = compound.curves.get(0);
+ * var curve1 = compound.curves.get(1);```
+ *
+ * @method get
+ * @param {number} index
+ * @throws Error
+ * @param {callback<gdal.Layer>} [callback=undefined] {{{cb}}}
+ * @return {Promise<gdal.SimpleCurve>}
+ */
+OGRCurve *CompoundCurveCurves::__get(OGRCompoundCurve *parent, size_t idx) {
+  if (idx >= static_cast<size_t>(__count(parent))) return nullptr;
+  return parent->getCurve(idx);
+}
 
-  int i;
-  NODE_ARG_INT(0, "index", i);
-
-  if (i >= 0 && i < geom->get()->getNumCurves())
-    info.GetReturnValue().Set(Geometry::New(geom->get()->getCurve(i), false));
-  else
-    Nan::ThrowRangeError("Invalid curve requested");
+OGRCurve *CompoundCurveCurves::__get(OGRCompoundCurve *parent, std::string name) {
+  throw "index must be a number";
 }
 
 /**

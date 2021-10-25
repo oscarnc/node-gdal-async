@@ -41,7 +41,6 @@ void RasterBand::Initialize(Local<Object> target) {
 
   // unimplemented methods
   // Nan::SetPrototypeMethod(lcons, "buildOverviews", buildOverviews);
-  // Nan::SetPrototypeMethod(lcons, "rasterIO", rasterIO);
   // Nan::SetPrototypeMethod(lcons, "getColorTable", getColorTable);
   // Nan::SetPrototypeMethod(lcons, "setColorTable", setColorTable);
   // Nan::SetPrototypeMethod(lcons, "getHistogram", getHistogram);
@@ -115,7 +114,7 @@ NAN_METHOD(RasterBand::New) {
     RasterBand *f = static_cast<RasterBand *>(ptr);
     f->Wrap(info.This());
 
-    Local<Value> overviews = RasterBandOverviews::New(info.This());
+    Local<Value> overviews = RasterBandOverviews::New(info.This(), info[1]);
     Nan::SetPrivate(info.This(), Nan::New("overviews_").ToLocalChecked(), overviews);
     Local<Value> pixels = RasterBandPixels::New(info.This());
     Nan::SetPrivate(info.This(), Nan::New("pixels_").ToLocalChecked(), pixels);
@@ -135,10 +134,6 @@ Local<Value> RasterBand::New(GDALRasterBand *raw, GDALDataset *raw_parent) {
 
   RasterBand *wrapped = new RasterBand(raw);
 
-  Local<Value> ext = Nan::New<External>(wrapped);
-  Local<Object> obj =
-    Nan::NewInstance(Nan::GetFunction(Nan::New(RasterBand::constructor)).ToLocalChecked(), 1, &ext).ToLocalChecked();
-
   LOG("Adding band to cache[%p] (parent=%p)", raw, raw_parent);
 
   // add reference to dataset so dataset doesnt get GC'ed while band is alive
@@ -153,8 +148,13 @@ Local<Value> RasterBand::New(GDALRasterBand *raw, GDALDataset *raw_parent) {
     return scope.Escape(Nan::Undefined());
     // ds = Dataset::New(raw_parent); //this should never happen
   }
-
   ds = object_store.get(raw_parent);
+
+  Local<Value> ext = Nan::New<External>(wrapped);
+  v8::Local<v8::Value> argv[] = {ext, ds};
+  Local<Object> obj =
+    Nan::NewInstance(Nan::GetFunction(Nan::New(RasterBand::constructor)).ToLocalChecked(), 2, argv).ToLocalChecked();
+
   Dataset *parent = Nan::ObjectWrap::Unwrap<Dataset>(ds);
   long parent_uid = parent->uid;
   wrapped->uid = object_store.add(raw, wrapped->persistent(), parent_uid);

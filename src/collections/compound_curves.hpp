@@ -11,6 +11,10 @@
 // gdal
 #include <gdal_priv.h>
 
+#include "standalone_collection.hpp"
+#include "../geometry/gdal_geometry.hpp"
+#include "../geometry/gdal_simplecurve.hpp"
+
 using namespace v8;
 using namespace node;
 
@@ -18,17 +22,18 @@ using namespace node;
 
 namespace node_gdal {
 
-class CompoundCurveCurves : public Nan::ObjectWrap {
+class CompoundCurve;
+
+class CompoundCurveCurves
+  : public StandaloneCollection<CompoundCurveCurves, OGRCurve *, OGRCompoundCurve *, Geometry, CompoundCurve> {
     public:
   static Nan::Persistent<FunctionTemplate> constructor;
-
+  static constexpr const char *_className = "CompoundCurveCurves";
   static void Initialize(Local<Object> target);
-  static NAN_METHOD(New);
-  static Local<Value> New(Local<Value> geom);
-  static NAN_METHOD(toString);
 
-  static NAN_METHOD(get);
-  static NAN_METHOD(count);
+  static OGRCurve *__get(OGRCompoundCurve *parent, size_t idx);
+  static OGRCurve *__get(OGRCompoundCurve *parent, std::string name);
+  static int __count(OGRCompoundCurve *parent);
   static NAN_METHOD(add);
 
   CompoundCurveCurves();
